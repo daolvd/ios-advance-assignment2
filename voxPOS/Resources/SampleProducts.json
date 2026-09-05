@@ -1,0 +1,32 @@
+[
+    {
+        "id": "01",
+        "product_name": "Pineapple",
+        "description": null,
+        "image": "pineapple",
+    },
+    {
+        "id": "02",
+        "product_name": "Tomato",
+        "description": "Get the roma kind. Else I'll refund",
+        "image": null,
+    },
+    {
+        "id": "03",
+        "product_name": "Orange",
+        "description": null,
+        "image": null,
+    },
+    {
+        "id": "04",
+        "product_name": "Watermelon",
+        "description": null,
+        "image": null,
+    },
+    {
+        "id": "06",
+        "product_name": "Apple",
+        "description": null,
+        "image": null,
+    }
+]
