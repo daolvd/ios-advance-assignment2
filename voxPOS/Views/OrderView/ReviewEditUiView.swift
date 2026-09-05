@@ -8,6 +8,10 @@
 import SwiftUI
 
 struct ReviewEditUiView: View {
+
+    @ObservedObject var draft: OrderDraftViewModel
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
 
@@ -16,42 +20,45 @@ struct ReviewEditUiView: View {
                   .font(.title.bold())
                   .padding(.top, 24)
 
-              Text("Order #43")
+              Text("Order #\(draft.orderNumber)")
                   .font(.body)
                   .foregroundStyle(.secondary)
                   .padding(.top, 4)
 
               // Product card
+              ForEach(draft.items, id: \.orderItemID) { item in
               VStack(alignment: .leading, spacing: 10) {
                   HStack {
-                      Text("Chicken Burger")
+                      Text(item.itemName)
                           .font(.headline)
 
                       Spacer()
 
-                      Text("$10.00")
+                      Text(item.unitPrice, format: .currency(code: "AUD"))
                           .font(.headline)
                   }
 
-                  Text("No cheese")
-                      .foregroundStyle(.secondary)
+                  if !item.modifiers.isEmpty {
+                      Text(item.modifiers.joined(separator: ", "))
+                          .foregroundStyle(.secondary)
+                  }
 
                   HStack(spacing: 16) {
                       Button(action: {
-                          // TODO: Decrease quantity
+                          draft.decreaseQuantity(of: item)
                       }) {
                           Image(systemName: "minus")
                               .frame(height: 18)
                       }
                       .buttonStyle(.bordered)
-                     
                       .buttonBorderShape(.circle)
+                      .disabled(item.quantity <= 1)
                       // number of item
-                      Text("2")
+                      Text("\(item.quantity)")
                           .font(.headline)
 
                       Button(action: {
-                          // TODO: Increase quantity
+                          draft.increaseQuantity(of: item)
                       }) {
                           Image(systemName: "plus")
                               .frame(height: 18)
@@ -61,7 +68,7 @@ struct ReviewEditUiView: View {
 
                       Spacer()
 
-                      Text("$20.00")
+                      Text(item.lineTotal, format: .currency(code: "AUD"))
                           .font(.headline)
                   }
               }
@@ -72,7 +79,8 @@ struct ReviewEditUiView: View {
                   RoundedRectangle(cornerRadius: 16)
                       .stroke(Color(.separator), lineWidth: 1)
               }
-              .padding(.top, 44)
+              .padding(.top, item.orderItemID == draft.items.first?.orderItemID ? 44 : 14)
+              }
 
               // Add item
               Button(action: {
@@ -107,7 +115,7 @@ struct ReviewEditUiView: View {
 
                   Spacer()
 
-                  Text("$24.00")
+                  Text(draft.total, format: .currency(code: "AUD"))
                       .font(.system(size: 30, weight: .bold))
               }
               .padding(20)
@@ -128,7 +136,8 @@ struct ReviewEditUiView: View {
               .padding(.top, 32)
 
               Button(action: {
-                  // TODO: Cancel order
+                  draft.cancel()
+                  dismiss()
               }) {
                   Text("Cancel Order")
                       .font(.headline)
@@ -147,5 +156,7 @@ struct ReviewEditUiView: View {
 
 
 #Preview {
-    ReviewEditUiView()
+    NavigationStack {
+        ReviewEditUiView(draft: OrderDraftViewModel())
+    }
 }

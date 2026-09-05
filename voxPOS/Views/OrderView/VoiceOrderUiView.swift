@@ -11,7 +11,10 @@ import Lottie
 struct VoiceOrderUiView: View {
 
     @StateObject private var viewModel = VoiceOrderViewModel()
+    @StateObject private var draft = OrderDraftViewModel()
+    @EnvironmentObject private var productViewModel: ProductViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var isShowingInterpretedOrder = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -68,6 +71,9 @@ struct VoiceOrderUiView: View {
         .animation(.default, value: viewModel.state)
         .task {
             viewModel.startListening()
+        }
+        .navigationDestination(isPresented: $isShowingInterpretedOrder) {
+            InterpretedOrderUiView(draft: draft)
         }
     }
 
@@ -153,7 +159,7 @@ struct VoiceOrderUiView: View {
     private var primaryButtonTitle: String {
         switch viewModel.state {
         case .listening: return "Stop"
-        case .captured: return "Continue"
+        case .captured: return draft.state == .converting ? "Reading order…" : "Continue"
         case .failed: return "Try Again"
         case .idle: return "Start"
         }
@@ -164,12 +170,24 @@ struct VoiceOrderUiView: View {
         case .listening:
             viewModel.stopListening()
         case .captured:
-            // TODO: hand the transcript to the order screen
-            break
+            convertToOrder()
         case .failed:
             viewModel.retry()
         case .idle:
             viewModel.startListening()
+        }
+    }
+
+    private func convertToOrder() {
+        guard let transcript = viewModel.transcript else { return }
+
+        Task {
+            await draft.convert(
+                text: transcript.staffText,
+                repository: productViewModel.repository
+            )
+
+            isShowingInterpretedOrder = draft.isReady
         }
     }
 
@@ -180,5 +198,8 @@ struct VoiceOrderUiView: View {
 }
 
 #Preview {
-    VoiceOrderUiView()
+    NavigationStack {
+        VoiceOrderUiView()
+    }
+    .environmentObject(ProductViewModel(repository: JSONProductRepository()))
 }

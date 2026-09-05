@@ -30,18 +30,6 @@ extension ProductRepository {
         return products.first { $0.title.normalisedForMatching == wanted }
     }
 
-
-    var menuDescription: String {
-        availableProducts.map { product in
-            let price = product.price.formatted(.currency(code: "AUD"))
-            let modifiers = product.allowModifier.isEmpty
-                ? "none"
-                : product.allowModifier.joined(separator: ", ")
-
-            return "\(product.id) | \(product.title) | \(price) | options: \(modifiers)"
-        }
-        .joined(separator: "\n")
-    }
 }
 
 private extension String {

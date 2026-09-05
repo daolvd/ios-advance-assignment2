@@ -95,7 +95,7 @@ struct ConvertTextToOrderUseCase {
 
         let lines = try await interpreter.interpret(
             text: spokenText,
-            menu: repository.menuDescription
+            menu: repository.availableProducts
         )
 
         guard !lines.isEmpty else {
@@ -106,12 +106,18 @@ struct ConvertTextToOrderUseCase {
         var unmatchedItems: [String] = []
 
         for line in lines {
+            // The model says so itself when nothing on the menu fits.
+            guard line.isOnMenu else {
+                unmatchedItems.append(line.customerWords)
+                continue
+            }
+
             // Only a product that is on the menu and on sale can be ordered.
             guard
                 let product = repository.product(named: line.productName),
                 product.isAvailable
             else {
-                unmatchedItems.append(line.productName)
+                unmatchedItems.append(line.customerWords)
                 continue
             }
 

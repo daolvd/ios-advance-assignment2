@@ -129,7 +129,9 @@ struct HomeUiView: View {
         .padding(.top, 24)
         .background(Color(.systemBackground))
         .fullScreenCover(isPresented: $isTakingVoiceOrder) {
-            VoiceOrderUiView()
+            NavigationStack {
+                VoiceOrderUiView()
+            }
         }
         .confirmationDialog(
             "End this shift?",

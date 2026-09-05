@@ -8,6 +8,12 @@
 import SwiftUI
 
 struct InterpretedOrderUiView: View {
+
+    @ObservedObject var draft: OrderDraftViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var isShowingTranscript = false
+    @State private var isReviewingOrder = false
+
     var body: some View {
             VStack(alignment: .leading, spacing: 0) {
 
@@ -15,7 +21,7 @@ struct InterpretedOrderUiView: View {
                     .font(.subheadline.bold())
                     .foregroundStyle(.blue)
 
-                Text("Order created")
+                Text("Order #\(draft.orderNumber) created")
                     .font(.title.bold())
                     .padding(.top, 24)
 
@@ -26,15 +32,16 @@ struct InterpretedOrderUiView: View {
 
                 // Order information
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("2 × Chicken Burger")
-                        .font(.headline)
+                    ForEach(draft.items, id: \.orderItemID) { item in
+                        Text("\(item.quantity) × \(item.itemName)")
+                            .font(.headline)
 
-                    Text("No cheese ×1")
-                        .foregroundStyle(.secondary)
-                        .padding(.leading, 18)
-
-                    Text("1 × Iced Tea")
-                        .font(.headline)
+                        ForEach(item.modifiers, id: \.self) { modifier in
+                            Text(modifier)
+                                .foregroundStyle(.secondary)
+                                .padding(.leading, 18)
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(22)
@@ -48,10 +55,12 @@ struct InterpretedOrderUiView: View {
 
                 // Recognition status
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Recognised clearly")
+                    Text(draft.unmatchedItems.isEmpty ? "Recognised clearly" : "Some items were left out")
                         .font(.headline)
 
-                    Text("Check before confirming.")
+                    Text(draft.unmatchedItems.isEmpty
+                         ? "Check before confirming."
+                         : "Not on today's menu: \(draft.unmatchedItems.joined(separator: ", "))")
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -62,8 +71,9 @@ struct InterpretedOrderUiView: View {
 
                 // What we heard
                 Button(action: {
-                    // TODO: Show transcript
+                    isShowingTranscript.toggle()
                 }) {
+                    VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text("What we heard")
                             .font(.headline)
@@ -71,12 +81,21 @@ struct InterpretedOrderUiView: View {
 
                         Spacer()
 
-                        Image(systemName: "chevron.down")
+                        Image(systemName: isShowingTranscript ? "chevron.up" : "chevron.down")
                             .font(.caption.bold())
                             .foregroundStyle(.secondary)
                     }
-                    .padding(.horizontal, 20)
                     .frame(height: 60)
+
+                    if isShowingTranscript {
+                        Text("“\(draft.spokenText)”")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.bottom, 16)
+                    }
+                    }
+                    .padding(.horizontal, 20)
                     .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .overlay {
@@ -90,7 +109,7 @@ struct InterpretedOrderUiView: View {
                 Spacer()
 
                 Button(action: {
-                    // TODO: Open review order
+                    isReviewingOrder = true
                 }) {
                     Text("Review Order")
                         .font(.headline)
@@ -102,7 +121,8 @@ struct InterpretedOrderUiView: View {
                 }
 
                 Button(action: {
-                    // TODO: Record again
+                    draft.cancel()
+                    dismiss()
                 }) {
                     Text("Try Again")
                         .font(.headline)
@@ -119,7 +139,7 @@ struct InterpretedOrderUiView: View {
                 .padding(.top, 14)
 
                 Button(action: {
-                    // TODO: Enter order manually
+                    isReviewingOrder = true
                 }) {
                     Text("Enter Manually")
                         .font(.headline)
@@ -133,9 +153,15 @@ struct InterpretedOrderUiView: View {
             .padding(.top, 24)
             .padding(.bottom, 40)
             .background(Color(.systemBackground))
+            .navigationBarBackButtonHidden()
+            .navigationDestination(isPresented: $isReviewingOrder) {
+                ReviewEditUiView(draft: draft)
+            }
         }
     }
 
 #Preview {
-    InterpretedOrderUiView()
+    NavigationStack {
+        InterpretedOrderUiView(draft: OrderDraftViewModel())
+    }
 }
