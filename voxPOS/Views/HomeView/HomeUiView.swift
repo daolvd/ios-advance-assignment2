@@ -8,6 +8,10 @@
 import SwiftUI
 
 struct HomeUiView: View {
+
+    @EnvironmentObject private var staffViewModel: StaffViewModel
+    @State private var isConfirmingEndShift = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
 
@@ -17,7 +21,7 @@ struct HomeUiView: View {
                 Spacer()
 
                 Button("End Shift") {
-                    // TODO
+                    isConfirmingEndShift = true
                 }
                 .font(.headline)
             }
@@ -27,7 +31,7 @@ struct HomeUiView: View {
                 .font(.system(size: 24, weight: .bold))
                 .padding(.top, 26)
 
-            Text("Mai · Shift AM-12")
+            Text(staffViewModel.shiftCaption)
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
@@ -123,9 +127,22 @@ struct HomeUiView: View {
         .padding(.horizontal, 32)
         .padding(.top, 24)
         .background(Color(.systemBackground))
+        .confirmationDialog(
+            "End this shift?",
+            isPresented: $isConfirmingEndShift,
+            titleVisibility: .visible
+        ) {
+            Button("End Shift", role: .destructive) {
+                staffViewModel.endShift()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("You will need to sign in again to take new orders.")
+        }
     }
 }
 
 #Preview {
     HomeUiView()
+        .environmentObject(StaffViewModel(repository: LocalStaffRepository()))
 }

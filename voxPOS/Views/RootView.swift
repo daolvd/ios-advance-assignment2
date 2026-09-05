@@ -11,17 +11,20 @@ import SwiftData
 struct RootView: View {
     
     @StateObject private var productViewModel = ProductViewModel(repository: LocalProductRepository())
+    @StateObject private var staffViewModel = StaffViewModel(repository: LocalStaffRepository())
     
     var body: some View {
-        TabView {
-            Tab("Home", systemImage: "house.fill") {
-                GroceryView()
-            }
-            Tab("Settings", systemImage: "gearshape.fill") {
-                SettingsView()
+        Group {
+            if staffViewModel.isOnShift {
+          
+                HomeUiView()
+            
+            } else {
+                StaffLoginView()
             }
         }
         .environmentObject(productViewModel)
+        .environmentObject(staffViewModel)
     }
 }
 
