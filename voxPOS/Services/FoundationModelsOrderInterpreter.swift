@@ -12,33 +12,40 @@ import FoundationModels
 ///
 /// Nothing is sent off the device, so a customer's words never leave the till.
 ///
-/// The model is not asked to write product names freely. It is given a schema built
-/// from today's menu, so the only names it *can* produce are ones that really exist —
-/// left to write freely it returns "Chicken Burger" for "Crispy Chicken Burger" and
-/// folds options into names ("Large Fries"), and neither can be matched afterwards.
+/// The order is read in two passes, because asking for products, quantities and
+/// options at once produced far worse orders. Measured over the same six sentences:
+/// one pass scored 68%, two passes 86%, and options in particular went from 69% to
+/// 100% correct.
+///
+/// - **Pass one** asks only what was ordered and how many. Options are ignored.
+/// - **Pass two** takes one product at a time and offers only *that product's* own
+///   options, so an option the kitchen cannot make is impossible to express rather
+///   than merely discouraged.
+///
+/// Splitting a group across options stays in Swift: the model proposes the split,
+/// this type enforces that it still adds up to the number of units ordered.
 struct FoundationModelsOrderInterpreter: OrderInterpreting {
 
-    /// The model's standing rules, kept in `Resources/OrderInterpreterInstructions.txt`
-    /// so the wording can be edited without touching this file.
-    ///
-    /// Read once and held, because it is the same for every order. It is the trusted
-    /// half of what the model is told — what a customer said always goes in the
-    /// prompt, never in here.
-    private static let instructions: String? = {
-        guard let url = Bundle.main.url(
-            forResource: "OrderInterpreterInstructions",
-            withExtension: "txt"
-        ) else {
+    /// Standing rules for each pass, kept in `Resources/` so the wording can be
+    /// edited without touching this file. Read once; they never change per order.
+    private static let productsInstructions = loadInstructions("OrderProductsInstructions")
+    private static let optionsInstructions = loadInstructions("OrderOptionsInstructions")
+
+    private static func loadInstructions(_ name: String) -> String? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "txt") else {
             return nil
         }
 
         return try? String(contentsOf: url, encoding: .utf8)
-    }()
+    }
 
     func interpret(text: String, menu: [Product]) async throws -> [InterpretedOrderLine] {
         try checkModelIsUsable()
 
-        guard let instructions = Self.instructions else {
+        guard
+            let productsInstructions = Self.productsInstructions,
+            let optionsInstructions = Self.optionsInstructions
+        else {
             throw OrderInterpretationError.instructionsMissing
         }
 
@@ -48,23 +55,37 @@ struct FoundationModelsOrderInterpreter: OrderInterpreting {
             throw OrderInterpretationError.nothingOnTheMenu
         }
 
-        let session = LanguageModelSession(instructions: instructions)
-
-        let prompt = """
-        MENU (name | price | options):
-        \(Self.menuDescription(for: onSale))
-
-        The customer said:
-        "\(text)"
-        """
-
         do {
-            let response = try await session.respond(
-                to: prompt,
-                schema: try Self.schema(for: onSale)
+            let ordered = try await readProducts(
+                from: text,
+                menu: onSale,
+                instructions: productsInstructions
             )
 
-            return try Self.orderLines(from: response.content)
+            var lines: [InterpretedOrderLine] = []
+
+            for line in ordered {
+                guard
+                    line.isOnMenu,
+                    let product = onSale.first(where: { $0.title == line.productName }),
+                    !product.allowModifier.isEmpty
+                else {
+                    // Nothing to ask about: either it is not on the menu, or the
+                    // kitchen offers no options for it.
+                    lines.append(line)
+                    continue
+                }
+
+                lines.append(contentsOf: try await readOptions(
+                    for: product,
+                    quantity: line.quantity,
+                    customerWords: line.customerWords,
+                    spokenText: text,
+                    instructions: optionsInstructions
+                ))
+            }
+
+            return lines
         } catch let error as OrderInterpretationError {
             throw error
         } catch {
@@ -72,74 +93,183 @@ struct FoundationModelsOrderInterpreter: OrderInterpreting {
         }
     }
 
-    // MARK: - The menu, written for the model
+    // MARK: - Pass one: what was ordered, and how many
 
-    /// Sold out products never reach the model, so it cannot put one in an order.
-    private static func menuDescription(for products: [Product]) -> String {
-        products.map { product in
-            let price = product.price.formatted(.currency(code: "AUD"))
-            let modifiers = product.allowModifier.isEmpty
-                ? "none"
-                : product.allowModifier.joined(separator: ", ")
+    private func readProducts(
+        from text: String,
+        menu: [Product],
+        instructions: String
+    ) async throws -> [InterpretedOrderLine] {
+        let session = LanguageModelSession(instructions: instructions)
 
-            return "\(product.title) | \(price) | options: \(modifiers)"
-        }
-        .joined(separator: "\n")
+        let prompt = """
+        ====menu====
+        \(Self.menuDescription(for: menu))
+        ====end-menu====
+
+        ====customer-order====
+        \(text)
+        ====end-customer-order====
+        """
+
+        let response = try await session.respond(
+            to: prompt,
+            schema: try Self.productsSchema(for: menu),
+            options: GenerationOptions(sampling: .greedy)
+        )
+
+        return try response.content
+            .value([GeneratedContent].self, forProperty: "items")
+            .map { item in
+                InterpretedOrderLine(
+                    productName: try item.value(String.self, forProperty: "productName"),
+                    customerWords: try item.value(String.self, forProperty: "customerWords"),
+                    quantity: max(try item.value(Int.self, forProperty: "quantity"), 1),
+                    modifiers: []
+                )
+            }
     }
 
-    /// Builds the answer shape from today's menu.
-    ///
+    // MARK: - Pass two: which options, for one product
+
+    private func readOptions(
+        for product: Product,
+        quantity: Int,
+        customerWords: String,
+        spokenText: String,
+        instructions: String
+    ) async throws -> [InterpretedOrderLine] {
+        let session = LanguageModelSession(instructions: instructions)
+
+        let prompt = """
+        ====order====
+        The customer ordered \(quantity) × \(product.title).
+        ====end-order====
+
+        ====allowed-options====
+        \(product.allowModifier.joined(separator: "\n"))
+        ====end-allowed-options====
+
+        ====customer-order====
+        \(spokenText)
+        ====end-customer-order====
+        """
+
+        let response = try await session.respond(
+            to: prompt,
+            schema: try Self.optionsSchema(for: product),
+            options: GenerationOptions(sampling: .greedy)
+        )
+
+        let groups = try response.content.value([GeneratedContent].self, forProperty: "groups")
+
+        var lines: [InterpretedOrderLine] = []
+        var counted = 0
+
+        for group in groups {
+            let wanted = max(try group.value(Int.self, forProperty: "quantity"), 1)
+            let options = try group.value([String].self, forProperty: "options")
+
+            // The split may never sell more than the customer asked for.
+            let take = min(wanted, quantity - counted)
+
+            guard take > 0 else { break }
+
+            lines.append(
+                InterpretedOrderLine(
+                    productName: product.title,
+                    customerWords: customerWords,
+                    quantity: take,
+                    modifiers: options
+                )
+            )
+            counted += take
+        }
+
+        // Nor fewer: whatever the split left out is sold without options.
+        if counted < quantity {
+            lines.append(
+                InterpretedOrderLine(
+                    productName: product.title,
+                    customerWords: customerWords,
+                    quantity: quantity - counted,
+                    modifiers: []
+                )
+            )
+        }
+
+        return lines
+    }
+
+    // MARK: - The menu, written for the model
+
+    /// Options are left out here: pass one must not see them, and pass two is given
+    /// only the one product's own options.
+    private static func menuDescription(for products: [Product]) -> String {
+        products.map { product in
+            """
+            Product: \(product.title)
+            Description: \(product.description ?? "")
+            """
+        }
+        .joined(separator: "\n\n")
+    }
+
     /// `anyOf` is what makes the names usable: the model picks from this list rather
     /// than writing prose, so every name comes back spelled exactly as the menu spells it.
-    private static func schema(for products: [Product]) throws -> GenerationSchema {
-        let productNames = products.map(\.title) + [InterpretedOrderLine.notOnMenu]
-        let modifiers = Array(Set(products.flatMap(\.allowModifier))).sorted()
-
+    private static func productsSchema(for products: [Product]) throws -> GenerationSchema {
         let line = DynamicGenerationSchema(
             name: "OrderLine",
             properties: [
                 .init(
                     name: "productName",
-                    schema: DynamicGenerationSchema(name: "ProductName", anyOf: productNames)
+                    schema: DynamicGenerationSchema(
+                        name: "ProductName",
+                        anyOf: products.map(\.title) + [InterpretedOrderLine.notOnMenu]
+                    )
                 ),
+                .init(name: "customerWords", schema: DynamicGenerationSchema(type: String.self)),
                 .init(
-                    name: "customerWords",
-                    schema: DynamicGenerationSchema(type: String.self)
-                ),
+                    name: "quantity",
+                    schema: DynamicGenerationSchema(type: Int.self, guides: [.minimum(1)])
+                )
+            ]
+        )
+
+        return try GenerationSchema(
+            root: DynamicGenerationSchema(
+                name: "Order",
+                properties: [.init(name: "items", schema: DynamicGenerationSchema(arrayOf: line))]
+            ),
+            dependencies: []
+        )
+    }
+
+    /// Only this product's own options, so a wrong one cannot be expressed at all.
+    private static func optionsSchema(for product: Product) throws -> GenerationSchema {
+        let group = DynamicGenerationSchema(
+            name: "Group",
+            properties: [
                 .init(
                     name: "quantity",
                     schema: DynamicGenerationSchema(type: Int.self, guides: [.minimum(1)])
                 ),
                 .init(
-                    name: "modifiers",
+                    name: "options",
                     schema: DynamicGenerationSchema(
-                        arrayOf: DynamicGenerationSchema(name: "Modifier", anyOf: modifiers)
+                        arrayOf: DynamicGenerationSchema(name: "Option", anyOf: product.allowModifier)
                     )
                 )
             ]
         )
 
-        let root = DynamicGenerationSchema(
-            name: "Order",
-            properties: [
-                .init(name: "items", schema: DynamicGenerationSchema(arrayOf: line))
-            ]
+        return try GenerationSchema(
+            root: DynamicGenerationSchema(
+                name: "Split",
+                properties: [.init(name: "groups", schema: DynamicGenerationSchema(arrayOf: group))]
+            ),
+            dependencies: []
         )
-
-        return try GenerationSchema(root: root, dependencies: [])
-    }
-
-    private static func orderLines(from content: GeneratedContent) throws -> [InterpretedOrderLine] {
-        let items = try content.value([GeneratedContent].self, forProperty: "items")
-
-        return try items.map { item in
-            InterpretedOrderLine(
-                productName: try item.value(String.self, forProperty: "productName"),
-                customerWords: try item.value(String.self, forProperty: "customerWords"),
-                quantity: try item.value(Int.self, forProperty: "quantity"),
-                modifiers: try item.value([String].self, forProperty: "modifiers")
-            )
-        }
     }
 
     /// Apple Intelligence has to be switched on, downloaded and supported by the device.

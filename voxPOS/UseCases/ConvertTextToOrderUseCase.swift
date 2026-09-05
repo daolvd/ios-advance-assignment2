@@ -57,6 +57,12 @@ struct InterpretedOrder {
     /// These are shown to the staff rather than dropped in silence, so nobody
     /// discovers a missing item after the customer has paid.
     let unmatchedItems: [String]
+
+    /// Changes the customer asked for that the kitchen cannot make on that product.
+    ///
+    /// Dropping the option quietly would be worse than not hearing it: the staff
+    /// would never know the customer asked. Each one is written out for review.
+    let issues: [String]
 }
 
 /// Turns what a customer said into a draft order.
@@ -104,6 +110,7 @@ struct ConvertTextToOrderUseCase {
 
         var items: [OrderItem] = []
         var unmatchedItems: [String] = []
+        var issues: [String] = []
 
         for line in lines {
             // The model says so itself when nothing on the menu fits.
@@ -121,14 +128,21 @@ struct ConvertTextToOrderUseCase {
                 continue
             }
 
+            // Anything the kitchen cannot make is dropped from the line, but recorded.
+            let supported = line.modifiers.filter(product.allowModifier.contains)
+            let unsupported = line.modifiers.filter { !product.allowModifier.contains($0) }
+
+            if !unsupported.isEmpty {
+                issues.append("\(product.title): \(unsupported.joined(separator: ", ")) is not available")
+            }
+
             items.append(
                 OrderItem(
                     menuItemID: product.id,
                     itemName: product.title,
                     // The model occasionally writes 0 for "a coffee".
                     quantity: max(line.quantity, 1),
-                    // Anything the kitchen cannot make is dropped.
-                    modifiers: line.modifiers.filter(product.allowModifier.contains),
+                    modifiers: supported,
                     // The price comes from the menu, never from the model.
                     unitPrice: product.price
                 )
@@ -147,6 +161,10 @@ struct ConvertTextToOrderUseCase {
         order.spokenText = spokenText
         order.items = items
 
-        return InterpretedOrder(order: order, unmatchedItems: unmatchedItems)
+        return InterpretedOrder(
+            order: order,
+            unmatchedItems: unmatchedItems,
+            issues: issues
+        )
     }
 }

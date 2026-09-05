@@ -31,6 +31,9 @@ final class OrderDraftViewModel: ObservableObject {
     /// Things the customer asked for that are not on today's menu.
     private(set) var unmatchedItems: [String] = []
 
+    /// Options the customer asked for that the kitchen cannot make.
+    private(set) var issues: [String] = []
+
     private let interpreter: OrderInterpreting
 
     init(interpreter: OrderInterpreting = FoundationModelsOrderInterpreter()) {
@@ -51,6 +54,11 @@ final class OrderDraftViewModel: ObservableObject {
 
     var total: Decimal {
         items.reduce(0) { $0 + $1.lineTotal }
+    }
+
+    /// Everything the staff have to be told before they confirm this order.
+    var warnings: [String] {
+        unmatchedItems.map { "Not on today's menu: \($0)" } + issues
     }
 
     var errorMessage: String? {
@@ -84,10 +92,12 @@ final class OrderDraftViewModel: ObservableObject {
 
             order = interpreted.order
             unmatchedItems = interpreted.unmatchedItems
+            issues = interpreted.issues
             state = .ready
         } catch {
             order = nil
             unmatchedItems = []
+            issues = []
             state = .failed(error.localizedDescription)
         }
     }
@@ -111,6 +121,7 @@ final class OrderDraftViewModel: ObservableObject {
     func cancel() {
         order = nil
         unmatchedItems = []
+        issues = []
         state = .idle
     }
 

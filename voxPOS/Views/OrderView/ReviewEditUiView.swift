@@ -82,6 +82,23 @@ struct ReviewEditUiView: View {
               .padding(.top, item.orderItemID == draft.items.first?.orderItemID ? 44 : 14)
               }
 
+              if !draft.warnings.isEmpty {
+                  VStack(alignment: .leading, spacing: 6) {
+                      Text("Check with the customer")
+                          .font(.headline)
+
+                      ForEach(draft.warnings, id: \.self) { warning in
+                          Text("• \(warning)")
+                              .foregroundStyle(.secondary)
+                      }
+                  }
+                  .frame(maxWidth: .infinity, alignment: .leading)
+                  .padding(20)
+                  .background(Color.orange.opacity(0.12))
+                  .clipShape(RoundedRectangle(cornerRadius: 16))
+                  .padding(.top, 20)
+              }
+
               // Add item
               Button(action: {
                   // TODO: Add item

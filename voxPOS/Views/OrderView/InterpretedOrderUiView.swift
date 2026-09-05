@@ -55,13 +55,18 @@ struct InterpretedOrderUiView: View {
 
                 // Recognition status
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(draft.unmatchedItems.isEmpty ? "Recognised clearly" : "Some items were left out")
+                    Text(draft.warnings.isEmpty ? "Recognised clearly" : "Check these before confirming")
                         .font(.headline)
 
-                    Text(draft.unmatchedItems.isEmpty
-                         ? "Check before confirming."
-                         : "Not on today's menu: \(draft.unmatchedItems.joined(separator: ", "))")
-                        .foregroundStyle(.secondary)
+                    if draft.warnings.isEmpty {
+                        Text("Check before confirming.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(draft.warnings, id: \.self) { warning in
+                            Text("• \(warning)")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(20)
