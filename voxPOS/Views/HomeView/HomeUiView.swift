@@ -49,13 +49,13 @@ struct HomeUiView: View {
                             .clipShape(Circle())
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Start listening")
-                                .font(.title3)
+                                .font(.system(size: 16))
                                 .foregroundStyle(.secondary)
 
                        
                         }
                     }
-                    
+                
                     Text("Voice Order")
                         .font(.title2.bold())
                         .foregroundStyle(.primary)
@@ -86,7 +86,7 @@ struct HomeUiView: View {
                             .foregroundStyle(.primary)
 
                         Text("Pick items from the menu")
-                            .font(.title3)
+                            .font(.system(size: 16))
                             .foregroundStyle(.secondary)
                     }
 
