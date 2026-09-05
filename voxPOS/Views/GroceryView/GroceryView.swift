@@ -10,44 +10,12 @@ import SwiftData
 
 struct GroceryView: View {
     
-    @Query private var groceries: [Grocery] = []
+    // @Query private var groceries: [Grocery] = []
     @State private var newPlanSheetShowing: Bool = false
     
     var body: some View {
         NavigationStack {
-            Group {
-                if groceries.isEmpty {
-                    ContentUnavailableView("No Groceries Yet", systemImage: "basket.fill", description: Text("Add New Grocery List to get Started"))
-                        .navigationTitle("Grocery List")
-                } else {
-                    List {
-                        ForEach(groceries) { grocery in
-                            NavigationLink {
-                                
-                                GroceryListView()
-                           
-                            }
-                            label : {
-                                HStack{
-                                    Text(grocery.title)
-                                    Spacer()
-                                    Text("\(grocery.items.count) items")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add New Plan", systemImage: "plus") {
-                        newPlanSheetShowing.toggle()
-                    }
-                }
-            }
-            .sheet(isPresented: $newPlanSheetShowing) {
-                NewPlanView()
-            }
+            
         }
     }
 }
@@ -88,8 +56,8 @@ struct NewPlanView: View {
         
     }
     private func addNewGroceries() {
-        let newGroceries = Grocery(title: title)
-        context.insert(newGroceries)
+    //    let newGroceries = Grocery(title: title)
+      //  context.insert(newGroceries)
     }
 }
 
