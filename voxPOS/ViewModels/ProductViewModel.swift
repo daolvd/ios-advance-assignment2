@@ -8,7 +8,7 @@
 import Foundation
 import Combine
 
-final class ProductViewModel: ObservableObject {
+class ProductViewModel: ObservableObject {
     @Published var products: [Product] = []
     
     let repository: ProductRepository

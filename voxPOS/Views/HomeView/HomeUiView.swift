@@ -11,6 +11,7 @@ struct HomeUiView: View {
 
     @EnvironmentObject private var staffViewModel: StaffViewModel
     @State private var isConfirmingEndShift = false
+    @State private var isTakingVoiceOrder = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -41,7 +42,7 @@ struct HomeUiView: View {
 
             // Voice Order
             Button {
-                // TODO
+                isTakingVoiceOrder = true
             } label: {
                 HStack(spacing: 28) {
                     VStack{
@@ -127,6 +128,9 @@ struct HomeUiView: View {
         .padding(.horizontal, 32)
         .padding(.top, 24)
         .background(Color(.systemBackground))
+        .fullScreenCover(isPresented: $isTakingVoiceOrder) {
+            VoiceOrderUiView()
+        }
         .confirmationDialog(
             "End this shift?",
             isPresented: $isConfirmingEndShift,
