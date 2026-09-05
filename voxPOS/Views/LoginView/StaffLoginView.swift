@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct StaffLoginView: View {
+
+    @EnvironmentObject private var staffViewModel: StaffViewModel
+
     var body: some View {
       
         
@@ -31,8 +34,10 @@ struct StaffLoginView: View {
                             .font(Font.system(size: 14, weight: .bold))
                             .padding(.bottom, 8)
                         
-                        TextField("eg: John Doe", text: .constant(""))
+                        TextField("eg: John Doe", text: $staffViewModel.displayName)
                             .textContentType(.name)
+                            .autocorrectionDisabled()
+                            .submitLabel(.next)
                             .padding(.horizontal, 16)
                             .frame(height: 60)
                             .overlay {
@@ -49,8 +54,11 @@ struct StaffLoginView: View {
                             .font(Font.system(size: 14, weight: .bold))
                             .padding(.bottom,8)
                         
-                        TextField("eg: NightShift 1", text: .constant(""))
+                        TextField("eg: NightShift 1", text: $staffViewModel.shiftCode)
                             .textContentType(.name)
+                            .autocorrectionDisabled()
+                            .submitLabel(.go)
+                            .onSubmit(startShift)
                             .padding(.horizontal, 16)
                             .frame(height: 60)
                             .overlay {
@@ -60,6 +68,12 @@ struct StaffLoginView: View {
                                             lineWidth: 1
                                         )
                                 }
+                    }
+
+                    if let errorMessage = staffViewModel.errorMessage {
+                        Text(errorMessage)
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundStyle(Color.red)
                     }
                 }
             .padding(.top, 48)
@@ -72,20 +86,21 @@ struct StaffLoginView: View {
                                .frame(maxWidth: .infinity)
                                .frame(height: 60)
                                .foregroundStyle(.white)
-                               .background( Color.blue)
+                               .background( staffViewModel.canStartShift ? Color.blue : Color.gray)
                                .clipShape(RoundedRectangle(cornerRadius: 12))
                        }
+            .disabled(!staffViewModel.canStartShift)
             Spacer()
         }
         .padding(.horizontal, 24)
     }
     
     private func startShift() {
-        print("start shift")
-
+        staffViewModel.startShift()
     }
 }
 
 #Preview {
     StaffLoginView()
+        .environmentObject(StaffViewModel(repository: LocalStaffRepository()))
 }

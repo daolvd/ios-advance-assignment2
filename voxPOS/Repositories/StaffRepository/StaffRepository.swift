@@ -7,8 +7,13 @@
 
 import Foundation
 
+
 protocol StaffRepository {
-    func getStaff(username:String) -> Staff?
-    func login(with username: String, password: String) -> Staff?
-    func createStaff(staff: Staff) -> Bool
+
+
+    func saveSession(staff: Staff) -> Bool
+
+    func loadSession() -> Staff?
+
+    func clearSession()
 }
