@@ -23,14 +23,7 @@ final class ProductViewModel: ObservableObject {
     }
     
     func add(_ product: Product) {
-            if let existingProduct = checkProductExists(for: product) {
-                var updatedProduct = existingProduct
-         //       updatedProduct.quantity += product.quantity
-                update(updatedProduct)
-            } else {
-                repository.add(product)
-                load()
-            }
+          
         }
     
     func update(_ product: Product) {
@@ -44,13 +37,4 @@ final class ProductViewModel: ObservableObject {
     }
 }
 
-extension ProductViewModel {
-    func checkProductExists(for product: Product) -> Product? {
-            products.first { existing in
-                existing.title == product.title &&
-                existing.description == product.description &&
-                existing.image == product.image
-            }
-  
-        }
-}
+ 

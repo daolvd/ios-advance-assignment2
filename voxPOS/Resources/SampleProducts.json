@@ -1,32 +1,145 @@
 [
-    {
-        "id": "01",
-        "product_name": "Pineapple",
-        "description": null,
-        "image": "pineapple",
-    },
-    {
-        "id": "02",
-        "product_name": "Tomato",
-        "description": "Get the roma kind. Else I'll refund",
-        "image": null,
-    },
-    {
-        "id": "03",
-        "product_name": "Orange",
-        "description": null,
-        "image": null,
-    },
-    {
-        "id": "04",
-        "product_name": "Watermelon",
-        "description": null,
-        "image": null,
-    },
-    {
-        "id": "06",
-        "product_name": "Apple",
-        "description": null,
-        "image": null,
-    }
+  {
+    "id": "01",
+    "title": "Classic Cheeseburger",
+    "description": "Beef patty, cheese, lettuce, tomato and burger sauce",
+    "image": "classic_cheeseburger",
+    "isAvailable": true,
+    "price": 9.90,
+    "allowModifier": [
+      "No Cheese",
+      "No Pickles",
+      "Extra Beef Patty",
+      "Extra Cheese",
+      "Add Bacon"
+    ]
+  },
+  {
+    "id": "02",
+    "title": "Crispy Chicken Burger",
+    "description": "Crispy chicken, lettuce and mayonnaise",
+    "image": "crispy_chicken_burger",
+    "isAvailable": true,
+    "price": 10.90,
+    "allowModifier": [
+      "No Mayonnaise",
+      "Extra Chicken",
+      "Extra Cheese",
+      "Add Spicy Sauce"
+    ]
+  },
+  {
+    "id": "03",
+    "title": "Chicken Nuggets",
+    "description": "Six pieces of crispy chicken nuggets",
+    "image": "chicken_nuggets",
+    "isAvailable": true,
+    "price": 7.50,
+    "allowModifier": [
+      "Sweet and Sour Sauce",
+      "Barbecue Sauce",
+      "Aioli Sauce",
+      "Spicy Sauce"
+    ]
+  },
+  {
+    "id": "04",
+    "title": "French Fries",
+    "description": "Crispy golden potato fries",
+    "image": "french_fries",
+    "isAvailable": true,
+    "price": 4.50,
+    "allowModifier": [
+      "Small",
+      "Medium",
+      "Large",
+      "No Salt",
+      "Extra Salt"
+    ]
+  },
+  {
+    "id": "05",
+    "title": "Pepperoni Pizza",
+    "description": "Pepperoni, mozzarella cheese and tomato sauce",
+    "image": "pepperoni_pizza",
+    "isAvailable": true,
+    "price": 14.90,
+    "allowModifier": [
+      "Extra Cheese",
+      "Extra Pepperoni",
+      "No Cheese",
+      "Add Jalapenos"
+    ]
+  },
+  {
+    "id": "06",
+    "title": "Fried Chicken",
+    "description": "Two pieces of crispy fried chicken",
+    "image": "fried_chicken",
+    "isAvailable": true,
+    "price": 8.90,
+    "allowModifier": [
+      "Original",
+      "Spicy",
+      "Add Gravy",
+      "Add Dipping Sauce"
+    ]
+  },
+  {
+    "id": "07",
+    "title": "Hot Dog",
+    "description": "Grilled sausage with ketchup and mustard",
+    "image": "hot_dog",
+    "isAvailable": false,
+    "price": 7.90,
+    "allowModifier": [
+      "No Ketchup",
+      "No Mustard",
+      "Extra Cheese",
+      "Add Onion"
+    ]
+  },
+  {
+    "id": "08",
+    "title": "Coca-Cola",
+    "description": "Chilled Coca-Cola",
+    "image": "coca_cola",
+    "isAvailable": true,
+    "price": 3.50,
+    "allowModifier": [
+      "Small",
+      "Medium",
+      "Large",
+      "No Ice",
+      "Extra Ice"
+    ]
+  },
+  {
+    "id": "09",
+    "title": "Chocolate Milkshake",
+    "description": "Creamy chocolate-flavoured milkshake",
+    "image": "chocolate_milkshake",
+    "isAvailable": true,
+    "price": 5.90,
+    "allowModifier": [
+      "Small",
+      "Medium",
+      "Large",
+      "Add Whipped Cream"
+    ]
+  },
+  {
+    "id": "10",
+    "title": "Vanilla Sundae",
+    "description": "Vanilla soft serve with chocolate topping",
+    "image": "vanilla_sundae",
+    "isAvailable": true,
+    "price": 4.20,
+    "allowModifier": [
+      "Chocolate Topping",
+      "Caramel Topping",
+      "Strawberry Topping",
+      "No Topping"
+    ]
+  }
 ]

@@ -1,8 +1,8 @@
 //
 //  Product.swift
-//  Groceries
+//  voxPOS
 //
-//  Created by Shuvam Shrestha on 7/8/2026.
+//  Created by Van Dao Le on 5/9/2026.
 //
 
 import Foundation
@@ -12,7 +12,9 @@ struct Product: Identifiable, Codable {
     var title: String
     var description: String?
     var image: String?
-    
+    var isAvailable: Bool = true
+    var price: Decimal = 0
+    var allowModifier : [String] = []
  
     
     enum CodingKeys: String, CodingKey {
@@ -20,5 +22,8 @@ struct Product: Identifiable, Codable {
         case title = "product_name"
         case description
         case image
+        case isAvailable = "is_available"
+        case price
+        case allowModifier
     }
 }
