@@ -17,10 +17,6 @@ struct InterpretedOrderUiView: View {
     var body: some View {
             VStack(alignment: .leading, spacing: 0) {
 
-                Text("voxPOS")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.blue)
-
                 Text("Order #\(draft.orderNumber) created")
                     .font(.title.bold())
                     .padding(.top, 24)

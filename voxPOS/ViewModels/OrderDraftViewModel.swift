@@ -175,13 +175,15 @@ final class OrderDraftViewModel: ObservableObject {
         order?.orderTotal = total
     }
 
+    // the ordernumeber in range [from 0 to 999]
     private static func takeNextOrderNumber() -> Int {
         let defaults = UserDefaults.standard
         let key = "voxPOS.nextOrderNumber"
-        let next = max(defaults.integer(forKey: key), 43)
+        let current = defaults.integer(forKey: key)
+        let number = (0...999).contains(current) ? current : 0
 
-        defaults.set(next + 1, forKey: key)
+        defaults.set((number + 1) % 1000, forKey: key)
 
-        return next
+        return number
     }
 }

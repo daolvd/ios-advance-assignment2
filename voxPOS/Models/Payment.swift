@@ -26,10 +26,10 @@ enum PaymentStatus: String, Codable {
     case cancelled
 }
 
-class Payment {
-    class Payment {
 
-        @Attribute(.unique) var paymentID: String
+class Payment {
+
+        var paymentID: String
         var orderID: String
 
         /// The order total this attempt was for.
@@ -55,4 +55,3 @@ class Payment {
             self.attemptedAt = attemptedAt
         }
     }
-}
