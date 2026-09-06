@@ -34,6 +34,9 @@ final class OrderDraftViewModel: ObservableObject {
     /// Options the customer asked for that the kitchen cannot make.
     private(set) var issues: [String] = []
 
+    /// The most recent payment attempt, once one has been made.
+    private(set) var payment: Payment?
+
     private let interpreter: OrderInterpreting
 
     init(interpreter: OrderInterpreting = FoundationModelsOrderInterpreter()) {
@@ -110,6 +113,38 @@ final class OrderDraftViewModel: ObservableObject {
         setQuantity(max(item.quantity - 1, 1), on: item)
     }
 
+    /// Adds a product the staff picked from the menu by hand.
+    ///
+    /// An identical line — same product, same options — has its quantity raised
+    /// instead of appearing twice on the ticket.
+    func add(_ product: Product, quantity: Int, modifiers: [String]) {
+        guard let order, quantity > 0 else { return }
+
+        objectWillChange.send()
+
+        let allowed = modifiers.filter(product.allowModifier.contains)
+
+        if let existing = order.items.first(where: {
+            $0.menuItemID == product.id && $0.modifiers == allowed
+        }) {
+            existing.quantity += quantity
+            existing.lineTotal = existing.unitPrice * Decimal(existing.quantity)
+        } else {
+            order.items.append(
+                OrderItem(
+                    menuItemID: product.id,
+                    itemName: product.title,
+                    quantity: quantity,
+                    modifiers: allowed,
+                    // The price comes from the menu, the same as a spoken line.
+                    unitPrice: product.price
+                )
+            )
+        }
+
+        order.orderTotal = total
+    }
+
     func remove(_ item: OrderItem) {
         guard let order else { return }
 
@@ -118,7 +153,14 @@ final class OrderDraftViewModel: ObservableObject {
         order.orderTotal = total
     }
 
+    /// Records the outcome of a payment attempt so the result screens can show it.
+    func recordPayment(_ payment: Payment) {
+        objectWillChange.send()
+        self.payment = payment
+    }
+
     func cancel() {
+        payment = nil
         order = nil
         unmatchedItems = []
         issues = []

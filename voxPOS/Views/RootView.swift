@@ -12,6 +12,7 @@ struct RootView: View {
     
     @StateObject private var productViewModel = ProductViewModel(repository: JSONProductRepository())
     @StateObject private var staffViewModel = StaffViewModel(repository: LocalStaffRepository())
+    @State private var paymentRepository: PaymentRepository = LocalPaymentRepository()
     
     var body: some View {
         Group {
@@ -25,6 +26,7 @@ struct RootView: View {
         }
         .environmentObject(productViewModel)
         .environmentObject(staffViewModel)
+        .environment(\.paymentRepository, paymentRepository)
         .task(id: staffViewModel.isOnShift) {
             guard staffViewModel.isOnShift else {
                 productViewModel.reset()

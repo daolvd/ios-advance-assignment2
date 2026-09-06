@@ -11,10 +11,9 @@ import Lottie
 struct VoiceOrderUiView: View {
 
     @StateObject private var viewModel = VoiceOrderViewModel()
-    @StateObject private var draft = OrderDraftViewModel()
+    @EnvironmentObject private var draft: OrderDraftViewModel
+    @EnvironmentObject private var router: OrderFlowRouter
     @EnvironmentObject private var productViewModel: ProductViewModel
-    @Environment(\.dismiss) private var dismiss
-    @State private var isShowingInterpretedOrder = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -71,9 +70,6 @@ struct VoiceOrderUiView: View {
         .animation(.default, value: viewModel.state)
         .task {
             viewModel.startListening()
-        }
-        .navigationDestination(isPresented: $isShowingInterpretedOrder) {
-            InterpretedOrderUiView(draft: draft)
         }
     }
 
@@ -187,13 +183,14 @@ struct VoiceOrderUiView: View {
                 repository: productViewModel.repository
             )
 
-            isShowingInterpretedOrder = draft.isReady
+            if draft.isReady { router.push(.interpretedOrder) }
         }
     }
 
     private func cancel() {
         viewModel.cancel()
-        dismiss()
+        draft.cancel()
+        router.closeFlow()
     }
 }
 
@@ -202,4 +199,6 @@ struct VoiceOrderUiView: View {
         VoiceOrderUiView()
     }
     .environmentObject(ProductViewModel(repository: JSONProductRepository()))
+    .environmentObject(OrderDraftViewModel())
+    .environmentObject(OrderFlowRouter())
 }
