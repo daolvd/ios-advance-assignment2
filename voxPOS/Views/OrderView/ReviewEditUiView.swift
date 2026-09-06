@@ -12,29 +12,58 @@ struct ReviewEditUiView: View {
     @ObservedObject var draft: OrderDraftViewModel
 
     @EnvironmentObject private var router: OrderFlowRouter
+    @EnvironmentObject private var productViewModel: ProductViewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var isAddingItem = false
     @State private var itemBeingEdited: OrderItem?
 
+    private func product(for item: OrderItem) -> Product? {
+        productViewModel.products.first { $0.id == item.menuItemID }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
 
-              Text("Review Order")
-                  .font(.title.bold())
-                  .padding(.top, 6)
+              HStack(alignment: .firstTextBaseline) {
+                  VStack(alignment: .leading, spacing: 4) {
+                      Text("Review Order")
+                          .font(.title.bold())
 
-              Text("Order #\(draft.orderNumber)")
-                  .font(.body)
-                  .foregroundStyle(.secondary)
-                  .padding(.top, 4)
+                      Text("Order #\(draft.orderNumber)")
+                          .font(.body)
+                          .foregroundStyle(.secondary)
+                  }
+
+                  Spacer()
+
+                  Button(action: {
+                      isAddingItem = true
+                  }) {
+                      Label("Add Item", systemImage: "plus")
+                          .font(.subheadline.bold())
+                          .foregroundStyle(.blue)
+                          .padding(.horizontal, 14)
+                          .padding(.vertical, 9)
+                          .background(Color.blue.opacity(0.1))
+                          .clipShape(Capsule())
+                  }
+                  .buttonStyle(.plain)
+              }
+              .padding(.top, 6)
 
               // Product card
               ScrollView {
               VStack(alignment: .leading, spacing: 0) {
               ForEach(draft.items, id: \.orderItemID) { item in
               VStack(alignment: .leading, spacing: 10) {
-                  HStack {
+                  HStack(spacing: 12) {
+                      // The line only keeps the product's id, so the picture comes
+                      // from today's menu rather than being copied onto the order.
+                      if let product = product(for: item) {
+                          ProductThumbnail(product: product, size: 40)
+                      }
+
                       Button(action: {
                           itemBeingEdited = item
                       }) {
@@ -127,33 +156,9 @@ struct ReviewEditUiView: View {
                   .padding(.top, 20)
               }
 
-              // Add item
-              Button(action: {
-                  isAddingItem = true
-              }) {
-                  HStack(spacing: 18) {
-                      Image(systemName: "plus")
-                      Text("Add Item")
-                          .font(.headline)
-
-                      Spacer()
-                  }
-                  .foregroundStyle(.blue)
-                  .padding(.horizontal, 20)
-                  .frame(height: 60)
-                  .background(Color(.systemBackground))
-                  .clipShape(RoundedRectangle(cornerRadius: 14))
-                  .overlay {
-                      RoundedRectangle(cornerRadius: 14)
-                          .stroke(Color(.separator), lineWidth: 1)
-                  }
-              }
-              .buttonStyle(.plain)
-              .padding(.top, 20)
               }
               }
 
-              Spacer()
 
               if let editError = draft.editErrorMessage {
                   Text(editError)
@@ -204,9 +209,9 @@ struct ReviewEditUiView: View {
               .padding(.top, 10)
           }
           .padding(.horizontal, 24)
-          .padding(.top, 24)
           .padding(.bottom, 40)
           .background(Color(.systemBackground))
+          .toolbar(.hidden, for: .navigationBar)
           .sheet(isPresented: $isAddingItem) {
               AddItemInOrderUiView(draft: draft)
           }
