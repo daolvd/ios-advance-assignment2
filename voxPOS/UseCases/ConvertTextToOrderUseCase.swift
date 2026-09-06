@@ -35,9 +35,9 @@ enum OrderInterpretationError: LocalizedError, Equatable {
         case .modelUnavailable(let reason):
             return reason
         case .nothingOrdered:
-            return "We couldn't find an order in that. Please try again."
+            return "We couldn't find an order in that. Please take the order again."
         case .nothingOnTheMenu:
-            return "Nothing the customer asked for is on today's menu."
+            return "Nothing the customer asked for is on today's menu. Please take the order again."
         case .interpretationFailed:
             return "We couldn't read that order. Please try again or add the items by hand."
         case .instructionsMissing:

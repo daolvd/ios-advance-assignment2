@@ -34,6 +34,9 @@ final class OrderDraftViewModel: ObservableObject {
     /// Options the customer asked for that the kitchen cannot make.
     private(set) var issues: [String] = []
 
+    /// Why the last conversion failed, when it did.
+    private(set) var failure: OrderInterpretationError?
+
     /// The most recent payment attempt, once one has been made.
     private(set) var payment: Payment?
 
@@ -68,6 +71,17 @@ final class OrderDraftViewModel: ObservableObject {
         unmatchedItems.map { "Not on today's menu: \($0)" } + issues
     }
 
+    /// Reading the same words again cannot help when nothing said was on the menu,
+    /// or when no order could be found in them. The customer has to order again.
+    var needsNewRecording: Bool {
+        switch failure {
+        case .nothingOnTheMenu, .nothingOrdered, .noTextToInterpret:
+            return true
+        default:
+            return false
+        }
+    }
+
     var errorMessage: String? {
         guard case .failed(let message) = state else { return nil }
 
@@ -99,11 +113,13 @@ final class OrderDraftViewModel: ObservableObject {
                 orderNumber: Self.takeNextOrderNumber()
             )
 
+            failure = nil
             order = interpreted.order
             unmatchedItems = interpreted.unmatchedItems
             issues = interpreted.issues
             state = .ready
         } catch {
+            failure = error as? OrderInterpretationError
             order = nil
             unmatchedItems = []
             issues = []
@@ -148,6 +164,7 @@ final class OrderDraftViewModel: ObservableObject {
     }
 
     func cancel() {
+        failure = nil
         editErrorMessage = nil
         payment = nil
         order = nil
