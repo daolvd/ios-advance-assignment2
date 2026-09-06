@@ -8,7 +8,7 @@
 import Foundation
 import Combine
 
-final class StaffViewModel: ObservableObject {
+class StaffViewModel: ObservableObject {
 
     //The staff currently on shift. `nil` means the login screen is shown.
     @Published private(set) var currentStaff: Staff?
