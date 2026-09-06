@@ -8,6 +8,10 @@
 import SwiftUI
 
 struct CustomerCheckUiView: View {
+
+    @EnvironmentObject private var draft: OrderDraftViewModel
+    @EnvironmentObject private var router: OrderFlowRouter
+
     var body: some View {
           VStack(alignment: .leading, spacing: 0) {
 
@@ -15,23 +19,24 @@ struct CustomerCheckUiView: View {
                   .font(.system(size: 30, weight: .bold))
                   .padding(.top, 50)
 
-              Text("Ordered in Vietnamese")
+              Text("Order #\(draft.orderNumber)")
                   .font(.subheadline.bold())
                   .foregroundStyle(.secondary)
                   .padding(.top, 14)
 
               // Order summary
               VStack(alignment: .leading, spacing: 18) {
-                  Text("2 × Chicken Burger")
-                      .font(.headline)
+                  ForEach(draft.items, id: \.orderItemID) { item in
+                      Text("\(item.quantity) × \(item.itemName)")
+                          .font(.headline)
 
-                  Text("No cheese ×1")
-                      .font(.body)
-                      .foregroundStyle(.secondary)
-                      .padding(.leading, 16)
-
-                  Text("1 × Iced Tea")
-                      .font(.headline)
+                      if !item.modifiers.isEmpty {
+                          Text(item.modifiers.joined(separator: ", "))
+                              .font(.body)
+                              .foregroundStyle(.secondary)
+                              .padding(.leading, 16)
+                      }
+                  }
               }
               .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
               .padding(20)
@@ -49,7 +54,7 @@ struct CustomerCheckUiView: View {
                       .font(.caption.bold())
                       .foregroundStyle(.secondary)
 
-                  Text("$24.00")
+                  Text(draft.total, format: .currency(code: "AUD"))
                       .font(.system(size: 38, weight: .bold))
                       .frame(maxWidth: .infinity, alignment: .trailing)
               }
@@ -61,7 +66,7 @@ struct CustomerCheckUiView: View {
               Spacer()
 
               Button(action: {
-                  // TODO: Confirm order
+                  router.push(.payment)
               }) {
                   Text("Confirm")
                       .font(.headline)
@@ -73,7 +78,7 @@ struct CustomerCheckUiView: View {
               }
 
               Button(action: {
-                  // TODO: Return to review order
+                  router.back()
               }) {
                   Text("Change Order")
                       .font(.headline)
@@ -92,9 +97,14 @@ struct CustomerCheckUiView: View {
           .padding(.horizontal, 24)
           .padding(.bottom, 64)
           .background(Color(.systemBackground))
+          .navigationBarBackButtonHidden()
       }
   }
 
 #Preview {
-    CustomerCheckUiView()
+    NavigationStack {
+        CustomerCheckUiView()
+    }
+    .environmentObject(OrderDraftViewModel())
+    .environmentObject(OrderFlowRouter())
 }

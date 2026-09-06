@@ -10,9 +10,9 @@ import SwiftUI
 struct InterpretedOrderUiView: View {
 
     @ObservedObject var draft: OrderDraftViewModel
-    @Environment(\.dismiss) private var dismiss
+
+    @EnvironmentObject private var router: OrderFlowRouter
     @State private var isShowingTranscript = false
-    @State private var isReviewingOrder = false
 
     var body: some View {
             VStack(alignment: .leading, spacing: 0) {
@@ -110,7 +110,7 @@ struct InterpretedOrderUiView: View {
                 Spacer()
 
                 Button(action: {
-                    isReviewingOrder = true
+                    router.push(.reviewOrder)
                 }) {
                     Text("Review Order")
                         .font(.headline)
@@ -123,7 +123,7 @@ struct InterpretedOrderUiView: View {
 
                 Button(action: {
                     draft.cancel()
-                    dismiss()
+                    router.back()
                 }) {
                     Text("Try Again")
                         .font(.headline)
@@ -140,7 +140,7 @@ struct InterpretedOrderUiView: View {
                 .padding(.top, 14)
 
                 Button(action: {
-                    isReviewingOrder = true
+                    router.push(.reviewOrder)
                 }) {
                     Text("Enter Manually")
                         .font(.headline)
@@ -155,9 +155,6 @@ struct InterpretedOrderUiView: View {
             .padding(.bottom, 40)
             .background(Color(.systemBackground))
             .navigationBarBackButtonHidden()
-            .navigationDestination(isPresented: $isReviewingOrder) {
-                ReviewEditUiView(draft: draft)
-            }
         }
     }
 

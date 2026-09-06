@@ -8,6 +8,10 @@
 import SwiftUI
 
 struct PaymentFailedUiView: View {
+
+    @EnvironmentObject private var draft: OrderDraftViewModel
+    @EnvironmentObject private var router: OrderFlowRouter
+
     var body: some View {
             VStack(spacing: 0) {
 
@@ -32,7 +36,7 @@ struct PaymentFailedUiView: View {
                     .multilineTextAlignment(.center)
                     .padding(.top, 18)
 
-                Text("Order #43 · $24.00 still open")
+                Text("Order #\(draft.orderNumber) · \(draft.total.formatted(.currency(code: "AUD"))) still open")
                     .font(.subheadline.bold())
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 18)
@@ -43,7 +47,7 @@ struct PaymentFailedUiView: View {
                 Spacer()
 
                 Button(action: {
-                    // TODO: Try payment again
+                    router.back()
                 }) {
                     Text("Try Again")
                         .font(.headline)
@@ -55,7 +59,7 @@ struct PaymentFailedUiView: View {
                 }
 
                 Button(action: {
-                    // TODO: Change payment method
+                    router.back()
                 }) {
                     Text("Change Method")
                         .font(.headline)
@@ -73,7 +77,7 @@ struct PaymentFailedUiView: View {
                 .padding(.top, 14)
 
                 Button(action: {
-                    // TODO: Return to order
+                    router.backToReview()
                 }) {
                     Text("Back to Order")
                         .font(.headline)
@@ -86,10 +90,15 @@ struct PaymentFailedUiView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 64)
             .background(Color(.systemBackground))
+            .navigationBarBackButtonHidden()
         }
     }
 
 
 #Preview {
-    PaymentFailedUiView()
+    NavigationStack {
+        PaymentFailedUiView()
+    }
+    .environmentObject(OrderDraftViewModel())
+    .environmentObject(OrderFlowRouter())
 }

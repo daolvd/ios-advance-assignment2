@@ -10,15 +10,19 @@ import SwiftUI
 struct ReviewEditUiView: View {
 
     @ObservedObject var draft: OrderDraftViewModel
+
+    @EnvironmentObject private var router: OrderFlowRouter
     @Environment(\.dismiss) private var dismiss
+
+    @State private var isAddingItem = false
+    @State private var itemBeingEdited: OrderItem?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
 
-
               Text("Review Order")
                   .font(.title.bold())
-                  .padding(.top, 24)
+                  .padding(.top, 6)
 
               Text("Order #\(draft.orderNumber)")
                   .font(.body)
@@ -26,11 +30,25 @@ struct ReviewEditUiView: View {
                   .padding(.top, 4)
 
               // Product card
+              ScrollView {
+              VStack(alignment: .leading, spacing: 0) {
               ForEach(draft.items, id: \.orderItemID) { item in
               VStack(alignment: .leading, spacing: 10) {
                   HStack {
-                      Text(item.itemName)
-                          .font(.headline)
+                      Button(action: {
+                          itemBeingEdited = item
+                      }) {
+                          HStack(spacing: 6) {
+                              Text(item.itemName)
+                                  .font(.headline)
+                                  .foregroundStyle(.primary)
+
+                              Image(systemName: "pencil")
+                                  .font(.caption.bold())
+                                  .foregroundStyle(.blue)
+                          }
+                      }
+                      .buttonStyle(.plain)
 
                       Spacer()
 
@@ -70,6 +88,16 @@ struct ReviewEditUiView: View {
 
                       Text(item.lineTotal, format: .currency(code: "AUD"))
                           .font(.headline)
+
+                      Button(action: {
+                          draft.remove(item)
+                      }) {
+                          Image(systemName: "trash")
+                              .frame(height: 18)
+                      }
+                      .buttonStyle(.bordered)
+                      .buttonBorderShape(.circle)
+                      .tint(.red)
                   }
               }
               .padding(20)
@@ -79,7 +107,7 @@ struct ReviewEditUiView: View {
                   RoundedRectangle(cornerRadius: 16)
                       .stroke(Color(.separator), lineWidth: 1)
               }
-              .padding(.top, item.orderItemID == draft.items.first?.orderItemID ? 44 : 14)
+              .padding(.top, item.orderItemID == draft.items.first?.orderItemID ? 30 : 14)
               }
 
               if !draft.warnings.isEmpty {
@@ -101,7 +129,7 @@ struct ReviewEditUiView: View {
 
               // Add item
               Button(action: {
-                  // TODO: Add item
+                  isAddingItem = true
               }) {
                   HStack(spacing: 18) {
                       Image(systemName: "plus")
@@ -122,8 +150,18 @@ struct ReviewEditUiView: View {
               }
               .buttonStyle(.plain)
               .padding(.top, 20)
+              }
+              }
 
               Spacer()
+
+              if let editError = draft.editErrorMessage {
+                  Text(editError)
+                      .font(.footnote)
+                      .foregroundStyle(.red)
+                      .frame(maxWidth: .infinity, alignment: .leading)
+                      .padding(.top, 12)
+              }
 
               // Total
               HStack {
@@ -140,21 +178,22 @@ struct ReviewEditUiView: View {
               .clipShape(RoundedRectangle(cornerRadius: 16))
 
               Button(action: {
-                  // TODO: Show customer screen
+                  router.push(.customerCheck)
               }) {
                   Text("Show Customer")
                       .font(.headline)
                       .foregroundStyle(.white)
                       .frame(maxWidth: .infinity)
                       .frame(height: 60)
-                      .background(Color.blue)
+                      .background(draft.items.isEmpty ? Color.gray : Color.blue)
                       .clipShape(RoundedRectangle(cornerRadius: 16))
               }
+              .disabled(draft.items.isEmpty)
               .padding(.top, 32)
 
               Button(action: {
                   draft.cancel()
-                  dismiss()
+                  router.closeFlow()
               }) {
                   Text("Cancel Order")
                       .font(.headline)
@@ -168,6 +207,12 @@ struct ReviewEditUiView: View {
           .padding(.top, 24)
           .padding(.bottom, 40)
           .background(Color(.systemBackground))
+          .sheet(isPresented: $isAddingItem) {
+              AddItemInOrderUiView(draft: draft)
+          }
+          .sheet(item: $itemBeingEdited) { item in
+              EditOrderItemUiView(draft: draft, item: item)
+          }
       }
   }
 

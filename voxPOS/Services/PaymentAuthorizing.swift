@@ -10,7 +10,6 @@ import Foundation
 /// Asks for the money.
 ///
 /// Cash never reaches here — the staff member takes the notes themselves. Card and
-/// QR go to a terminal, which is the only part that can decline.
 protocol PaymentAuthorizing {
     func authorize(amount: Decimal, method: PaymentMethod) async throws -> PaymentStatus
 }

@@ -108,7 +108,9 @@ struct ConvertTextToOrderUseCase {
             throw OrderInterpretationError.nothingOrdered
         }
 
-        var items: [OrderItem] = []
+        let order = Order(orderNumber: orderNumber)
+        let revise = ReviseOrderUseCase(repository: repository)
+
         var unmatchedItems: [String] = []
         var issues: [String] = []
 
@@ -119,47 +121,38 @@ struct ConvertTextToOrderUseCase {
                 continue
             }
 
-            // Only a product that is on the menu and on sale can be ordered.
-            guard
-                let product = repository.product(named: line.productName),
-                product.isAvailable
-            else {
+            guard let product = repository.product(named: line.productName) else {
                 unmatchedItems.append(line.customerWords)
                 continue
             }
 
-            // Anything the kitchen cannot make is dropped from the line, but recorded.
-            let supported = line.modifiers.filter(product.allowModifier.contains)
-            let unsupported = line.modifiers.filter { !product.allowModifier.contains($0) }
-
-            if !unsupported.isEmpty {
-                issues.append("\(product.title): \(unsupported.joined(separator: ", ")) is not available")
-            }
-
-            items.append(
-                OrderItem(
-                    menuItemID: product.id,
-                    itemName: product.title,
+            do {
+                let added = try revise.addItem(
+                    product,
                     // The model occasionally writes 0 for "a coffee".
                     quantity: max(line.quantity, 1),
-                    modifiers: supported,
-                    // The price comes from the menu, never from the model.
-                    unitPrice: product.price
+                    options: line.modifiers,
+                    order: order
                 )
-            )
+
+                // Kept rather than dropped in silence: the staff have to be able to
+                // tell the customer their change could not be made.
+                if !added.droppedOptions.isEmpty {
+                    issues.append(
+                        "\(product.title): \(added.droppedOptions.joined(separator: ", ")) is not available"
+                    )
+                }
+            } catch {
+                // Sold out, or gone from the menu since the prompt was built.
+                unmatchedItems.append(line.customerWords)
+            }
         }
 
-        guard !items.isEmpty else {
+        guard !order.items.isEmpty else {
             throw OrderInterpretationError.nothingOnTheMenu
         }
 
-        let order = Order(
-            orderNumber: orderNumber,
-            orderTotal: items.reduce(0) { $0 + $1.lineTotal }
-        )
-
         order.spokenText = spokenText
-        order.items = items
 
         return InterpretedOrder(
             order: order,
