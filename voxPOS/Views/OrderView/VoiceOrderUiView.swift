@@ -15,6 +15,8 @@ struct VoiceOrderUiView: View {
     @EnvironmentObject private var router: OrderFlowRouter
     @EnvironmentObject private var productViewModel: ProductViewModel
 
+    @State private var isShowingOrderProblem = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
 
@@ -70,6 +72,23 @@ struct VoiceOrderUiView: View {
         .animation(.default, value: viewModel.state)
         .task {
             viewModel.startListening()
+        }
+        .onChange(of: draft.errorMessage) { _, message in
+            isShowingOrderProblem = message != nil
+        }
+        .alert(orderProblem.title, isPresented: $isShowingOrderProblem) {
+            if draft.needsNewRecording {
+                // Reading the same words again cannot help, so there is only one way on.
+                Button("Take a New Order") {
+                    draft.cancel()
+                    viewModel.retry()
+                }
+            } else {
+                Button("Try Again", action: convertToOrder)
+                Button("Cancel", role: .cancel, action: draft.cancel)
+            }
+        } message: {
+            Text(orderProblem.message)
         }
     }
 
@@ -141,6 +160,31 @@ struct VoiceOrderUiView: View {
         case .failed: return "Try again"
         case .idle: return "Ready"
         }
+    }
+
+    /// What the staff read, and under it the same thing in the customer's own
+    /// language, so the screen can be turned around and shown to them.
+    private var orderProblem: (title: String, message: String) {
+        let staffLine = draft.errorMessage ?? ""
+
+        let title: String
+        let notice: CustomerNotice
+
+        switch draft.failure {
+        case .nothingOnTheMenu:
+            (title, notice) = ("Not on today's menu", .notOnTheMenu)
+        case .nothingOrdered, .noTextToInterpret:
+            (title, notice) = ("No order heard", .couldNotHear)
+        default:
+            (title, notice) = ("Couldn't read the order", .couldNotHear)
+        }
+
+        // The staff line is written for staff. The customer always gets the polite
+        // version in their own language, English included, because the screen gets
+        // turned around and shown to them.
+        let language = viewModel.transcript?.detectedLanguage.code ?? "en"
+
+        return (title, "\(staffLine)\n\n\(notice.text(in: language))")
     }
 
     private var subtitle: String {

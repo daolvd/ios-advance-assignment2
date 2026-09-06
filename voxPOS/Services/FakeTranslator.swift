@@ -14,8 +14,12 @@ import Foundation
 struct FakeTranslator: TextTranslating {
 
     private static let englishFor = [
-        "Cho tôi hai burger gà, một cái không phô mai": "Two chicken burgers, one without cheese",
-        "Dos cafés con leche por favor": "Two coffees with milk, please"
+        "Cho tôi hai burger gà, một cái không phô mai":
+            "Two chicken burgers, one without cheese",
+        "Dos hamburguesas con queso y un helado de vainilla":
+            "Two cheeseburgers and a vanilla sundae",
+        "Cho tôi một ly trà sữa trân châu":
+            "One bubble milk tea please"
     ]
 
     /// Pretend the language pack has not been downloaded yet.

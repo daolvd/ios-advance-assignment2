@@ -14,10 +14,15 @@ import Foundation
 class FakeSpeechTranscriber: SpeechTranscribing, @unchecked Sendable {
 
     /// The orders this stand-in knows how to "hear".
+    /// Four orders, each landing on a different screen state: a plain order, an
+    /// option the kitchen cannot make, an order in English that needs no translating,
+    /// and an order of nothing the till sells — in a language the staff cannot read,
+    /// which is the case the customer-facing notice exists for.
     static let samples = [
         "Cho tôi hai burger gà, một cái không phô mai",
-        "One iced tea please, no sugar",
-        "Dos cafés con leche por favor"
+        "One coke with no ice and a large fries please",
+        "Dos hamburguesas con queso y un helado de vainilla",
+        "Cho tôi một ly trà sữa trân châu"
     ]
 
     /// Shortest believable listen, so the Stop button cannot fire before the animation shows.
@@ -28,7 +33,20 @@ class FakeSpeechTranscriber: SpeechTranscribing, @unchecked Sendable {
 
     private let lock = NSLock()
     private var stopRequested = false
-    private var nextSampleIndex = 0
+
+    /// Which order gets "heard" next.
+    ///
+    /// Random by default, so working through the app keeps landing on a different
+    /// case. A test must not be left guessing which order it got, so it fixes this
+    /// to one sample and asserts against that.
+    var chooseSample: @Sendable ([String]) -> String = { $0.randomElement() ?? "" }
+
+    init() {}
+
+    /// A transcriber that always hears the same thing, for tests.
+    init(alwaysSaying sentence: String) {
+        chooseSample = { _ in sentence }
+    }
 
     /// Set to return an empty transcript, to try the "we didn't catch that" path.
     var hearsNothing = false
@@ -61,13 +79,7 @@ class FakeSpeechTranscriber: SpeechTranscribing, @unchecked Sendable {
     }
 
     private func nextSample() -> String {
-        lock.lock()
-        defer { lock.unlock() }
-
-        let sample = Self.samples[nextSampleIndex % Self.samples.count]
-        nextSampleIndex += 1
-
-        return sample
+        chooseSample(Self.samples)
     }
 
     private var isStopRequested: Bool {
