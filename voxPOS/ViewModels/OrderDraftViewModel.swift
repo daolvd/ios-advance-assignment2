@@ -37,7 +37,11 @@ final class OrderDraftViewModel: ObservableObject {
     /// The most recent payment attempt, once one has been made.
     private(set) var payment: Payment?
 
+    /// Set when a change to the order was refused, for example on a paid order.
+    private(set) var editErrorMessage: String?
+
     private let interpreter: OrderInterpreting
+    private var reviseOrder = ReviseOrderUseCase(repository: LocalProductRepository())
 
     init(interpreter: OrderInterpreting = FoundationModelsOrderInterpreter()) {
         self.interpreter = interpreter
@@ -82,6 +86,8 @@ final class OrderDraftViewModel: ObservableObject {
     func convert(text: String, repository: ProductRepository) async {
         state = .converting
 
+        reviseOrder = ReviseOrderUseCase(repository: repository)
+
         let useCase = ConvertTextToOrderUseCase(
             interpreter: interpreter,
             repository: repository
@@ -106,51 +112,33 @@ final class OrderDraftViewModel: ObservableObject {
     }
 
     func increaseQuantity(of item: OrderItem) {
-        setQuantity(item.quantity + 1, on: item)
+        change { try reviseOrder.setQuantity(item.quantity + 1, of: item, order: $0) }
     }
 
+    /// A line never drops below one, so the button is simply ignored at one.
     func decreaseQuantity(of item: OrderItem) {
-        setQuantity(max(item.quantity - 1, 1), on: item)
+        guard item.quantity > 1 else { return }
+
+        change { try reviseOrder.setQuantity(item.quantity - 1, of: item, order: $0) }
     }
 
     /// Adds a product the staff picked from the menu by hand.
-    ///
-    /// An identical line — same product, same options — has its quantity raised
-    /// instead of appearing twice on the ticket.
     func add(_ product: Product, quantity: Int, modifiers: [String]) {
-        guard let order, quantity > 0 else { return }
+        change { try reviseOrder.addItem(product, quantity: quantity, options: modifiers, order: $0) }
+    }
 
-        objectWillChange.send()
+    /// Changes the options on a line the staff are editing.
+    func setOptions(_ options: [String], of item: OrderItem) {
+        change { try reviseOrder.setOptions(options, of: item, order: $0) }
+    }
 
-        let allowed = modifiers.filter(product.allowModifier.contains)
-
-        if let existing = order.items.first(where: {
-            $0.menuItemID == product.id && $0.modifiers == allowed
-        }) {
-            existing.quantity += quantity
-            existing.lineTotal = existing.unitPrice * Decimal(existing.quantity)
-        } else {
-            order.items.append(
-                OrderItem(
-                    menuItemID: product.id,
-                    itemName: product.title,
-                    quantity: quantity,
-                    modifiers: allowed,
-                    // The price comes from the menu, the same as a spoken line.
-                    unitPrice: product.price
-                )
-            )
-        }
-
-        order.orderTotal = total
+    /// Sets a line's quantity outright, used by the edit sheet.
+    func setQuantity(_ quantity: Int, of item: OrderItem) {
+        change { try reviseOrder.setQuantity(quantity, of: item, order: $0) }
     }
 
     func remove(_ item: OrderItem) {
-        guard let order else { return }
-
-        objectWillChange.send()
-        order.items.removeAll { $0.orderItemID == item.orderItemID }
-        order.orderTotal = total
+        change { try reviseOrder.remove(item: item, order: $0) }
     }
 
     /// Records the outcome of a payment attempt so the result screens can show it.
@@ -160,6 +148,7 @@ final class OrderDraftViewModel: ObservableObject {
     }
 
     func cancel() {
+        editErrorMessage = nil
         payment = nil
         order = nil
         unmatchedItems = []
@@ -167,12 +156,21 @@ final class OrderDraftViewModel: ObservableObject {
         state = .idle
     }
 
-    private func setQuantity(_ quantity: Int, on item: OrderItem) {
+    /// Runs one change to the order.
+    ///
+    /// `Order` and `OrderItem` are SwiftData models, so changing them does not
+    /// publish on its own — the notice has to be sent by hand, before the change.
+    private func change(_ edit: (Order) throws -> Void) {
+        guard let order else { return }
+
         objectWillChange.send()
 
-        item.quantity = quantity
-        item.lineTotal = item.unitPrice * Decimal(quantity)
-        order?.orderTotal = total
+        do {
+            try edit(order)
+            editErrorMessage = nil
+        } catch {
+            editErrorMessage = error.localizedDescription
+        }
     }
 
     // the ordernumeber in range [from 0 to 999]
