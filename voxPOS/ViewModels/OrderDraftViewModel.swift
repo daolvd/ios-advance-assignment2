@@ -110,7 +110,7 @@ final class OrderDraftViewModel: ObservableObject {
         do {
             let interpreted = try await useCase.execute(
                 text: text,
-                orderNumber: Self.takeNextOrderNumber()
+                orderNumber: OrderNumbering.take()
             )
 
             failure = nil
@@ -123,6 +123,28 @@ final class OrderDraftViewModel: ObservableObject {
             order = nil
             unmatchedItems = []
             issues = []
+            state = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Opens an empty ticket for an order the staff enter themselves.
+    ///
+    /// The rules live in ``StartManualOrderUseCase``; this only holds the result and
+    /// wires up the same editing rules a spoken order gets.
+    func startManualOrder(repository: ProductRepository) {
+        guard order == nil else { return }
+
+        reviseOrder = ReviseOrderUseCase(repository: repository)
+
+        do {
+            order = try StartManualOrderUseCase(repository: repository)
+                .execute(orderNumber: OrderNumbering.take())
+
+            unmatchedItems = []
+            issues = []
+            failure = nil
+            state = .ready
+        } catch {
             state = .failed(error.localizedDescription)
         }
     }
@@ -191,14 +213,4 @@ final class OrderDraftViewModel: ObservableObject {
     }
 
     // the ordernumeber in range [from 0 to 999]
-    private static func takeNextOrderNumber() -> Int {
-        let defaults = UserDefaults.standard
-        let key = "voxPOS.nextOrderNumber"
-        let current = defaults.integer(forKey: key)
-        let number = (0...999).contains(current) ? current : 0
-
-        defaults.set((number + 1) % 1000, forKey: key)
-
-        return number
-    }
 }
