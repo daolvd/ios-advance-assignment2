@@ -12,6 +12,10 @@ struct HomeUiView: View {
     @EnvironmentObject private var staffViewModel: StaffViewModel
     @State private var isConfirmingEndShift = false
     @State private var isTakingVoiceOrder = false
+    @State private var isTakingManualOrder = false
+
+    /// Read rather than taken, and refreshed whenever an order flow closes.
+    @State private var nextOrderNumber = OrderNumbering.peek()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -82,7 +86,7 @@ struct HomeUiView: View {
             .padding(.top, 60)
             // Manual Order
             Button {
-                // TODO
+                isTakingManualOrder = true
             } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 7) {
@@ -114,7 +118,7 @@ struct HomeUiView: View {
             .padding(.top, 28)
 
             // Next order
-            Text("Next order · #43")
+            Text("Next order · #\(nextOrderNumber)")
                 .font(.headline)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 20)
@@ -128,8 +132,11 @@ struct HomeUiView: View {
         .padding(.horizontal, 32)
         .padding(.top, 24)
         .background(Color(.systemBackground))
-        .fullScreenCover(isPresented: $isTakingVoiceOrder) {
+        .fullScreenCover(isPresented: $isTakingVoiceOrder, onDismiss: refreshOrderNumber) {
             OrderFlowView(isPresented: $isTakingVoiceOrder)
+        }
+        .fullScreenCover(isPresented: $isTakingManualOrder, onDismiss: refreshOrderNumber) {
+            OrderFlowView(isPresented: $isTakingManualOrder, start: .manualOrder)
         }
         .confirmationDialog(
             "End this shift?",
@@ -143,6 +150,12 @@ struct HomeUiView: View {
         } message: {
             Text("You will need to sign in again to take new orders.")
         }
+    }
+}
+
+private extension HomeUiView {
+    func refreshOrderNumber() {
+        nextOrderNumber = OrderNumbering.peek()
     }
 }
 
