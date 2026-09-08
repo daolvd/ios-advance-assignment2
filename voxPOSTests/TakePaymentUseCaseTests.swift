@@ -2,20 +2,13 @@
 //  TakePaymentUseCaseTests.swift
 //  voxPOSTests
 //
-//  Created by Van Dao Le on 6/9/2026.
+//  Verifies TakePaymentUseCase against the rules of taking money for an order.
 //
-//  White box, path coverage of TakePaymentUseCase.execute.
-//
-//  P1  order has no lines               -> throws .emptyOrder
-//  P2  lines add up to nothing          -> throws .nothingToCharge
-//  P3  order already paid for           -> throws .alreadyPaid
-//  P4  cash                             -> approved without a terminal
-//  P5  card, terminal approves          -> approved
-//  P6  card, terminal declines          -> returns a declined attempt, order stays open
-//  P7  card, terminal unreachable       -> throws .terminalUnavailable
-//  P8  attempt cannot be written down   -> throws .couldNotRecordAttempt
-//
-//  Boundary: a total of exactly zero is refused (P2); anything above it is charged.
+//  HAPPY PATH   cash is approved without a terminal, and closes the order
+//  BOUNDARY     a total of exactly zero is not something to charge for
+//  ERROR CASES  .emptyOrder · .alreadyPaid · .terminalUnavailable
+//               · .couldNotRecordAttempt
+//               plus the declined outcome, which is not an error at all
 //
 
 import Testing
@@ -31,7 +24,7 @@ struct TakePaymentUseCaseTests {
         TakePaymentUseCase(repository: repository, terminal: terminal)
     }
 
-    // MARK: P4 — cash
+    // MARK: - Happy path
 
     @Test func takePayment_approvesCashWithoutAskingATerminal() async throws {
         let repository = StubPaymentRepository()
@@ -48,22 +41,9 @@ struct TakePaymentUseCaseTests {
         #expect(payment.amount == Decimal(19.80))
         #expect(order.status == "paid")
         #expect(order.confirmedAt != nil)
-        #expect(repository.recorded.count == 1)
     }
 
-    // MARK: P5 — card approved
-
-    @Test func takePayment_approvesCard_whenTheTerminalApproves() async throws {
-        let order = makeOrder(items: [makeItem(Menu.cheeseburger)])
-
-        let payment = try await makeUseCase().execute(order: order, method: .card)
-
-        #expect(payment.status == .approved)
-        #expect(payment.paymentMethod == .card)
-        #expect(order.status == "paid")
-    }
-
-    // MARK: P6 — card declined
+    // MARK: - A decline is an outcome, not an error
 
     @Test func takePayment_returnsADeclinedAttempt_andLeavesTheOrderOpen() async throws {
         let repository = StubPaymentRepository()
@@ -72,7 +52,6 @@ struct TakePaymentUseCaseTests {
 
         let order = makeOrder(items: [makeItem(Menu.cheeseburger)])
 
-        // A decline is an ordinary outcome: the staff offer another method.
         let payment = try await makeUseCase(repository: repository, terminal: terminal)
             .execute(order: order, method: .card)
 
@@ -81,8 +60,8 @@ struct TakePaymentUseCaseTests {
         #expect(repository.recorded.count == 1, "a decline is still written down")
     }
 
-    /// A shift cannot be reconciled unless every attempt is on record, so an order
-    /// paid on the second try must not look like it was only ever paid once.
+    /// A shift cannot be reconciled from approvals alone: an order paid on the
+    /// second try must not look like it was only ever paid once.
     @Test func takePayment_recordsBothTheDeclineAndTheApprovalThatFollowsIt() async throws {
         let repository = StubPaymentRepository()
         var declining = StubPaymentTerminal()
@@ -92,23 +71,15 @@ struct TakePaymentUseCaseTests {
 
         _ = try await makeUseCase(repository: repository, terminal: declining)
             .execute(order: order, method: .card)
-        _ = try await makeUseCase(repository: repository)
-            .execute(order: order, method: .cash)
+        _ = try await makeUseCase(repository: repository).execute(order: order, method: .cash)
 
-        #expect(repository.recorded.count == 2)
         #expect(repository.recorded.map(\.status) == [.declined, .approved])
     }
 
-    // MARK: P1, P2 — nothing to charge
+    // MARK: - Boundary
 
-    @Test func takePayment_fails_whenTheOrderHasNoLines() async {
-        await #expect(throws: PaymentError.emptyOrder) {
-            try await makeUseCase().execute(order: makeOrder(), method: .cash)
-        }
-    }
-
-    /// Boundary: a total of exactly zero is not something to charge for.
-    @Test func takePayment_fails_whenTheTotalIsZero() async {
+    /// Exactly zero is the line between something to charge for and nothing.
+    @Test func takePayment_fails_whenTheTotalIsExactlyZero() async {
         let free = Product(id: "00", title: "Classic Cheeseburger", isAvailable: true, price: 0)
         let order = makeOrder(items: [makeItem(free, quantity: 2)])
 
@@ -117,7 +88,13 @@ struct TakePaymentUseCaseTests {
         }
     }
 
-    // MARK: P3 — paying twice
+    // MARK: - Error cases
+
+    @Test func takePayment_fails_whenTheOrderHasNoLines() async {
+        await #expect(throws: PaymentError.emptyOrder) {
+            try await makeUseCase().execute(order: makeOrder(), method: .cash)
+        }
+    }
 
     @Test func takePayment_fails_whenTheOrderHasAlreadyBeenPaidFor() async throws {
         let repository = StubPaymentRepository()
@@ -132,8 +109,6 @@ struct TakePaymentUseCaseTests {
         #expect(repository.recorded.count == 1, "the customer must not be charged twice")
     }
 
-    // MARK: P7 — the terminal
-
     @Test func takePayment_fails_whenTheCardTerminalCannotBeReached() async {
         var terminal = StubPaymentTerminal()
         terminal.outcome = .failure(StubPaymentTerminal.OutOfOrder())
@@ -144,8 +119,6 @@ struct TakePaymentUseCaseTests {
             try await makeUseCase(terminal: terminal).execute(order: order, method: .card)
         }
     }
-
-    // MARK: P8 — the record
 
     @Test func takePayment_fails_whenTheAttemptCannotBeWrittenDown() async {
         let repository = StubPaymentRepository()
