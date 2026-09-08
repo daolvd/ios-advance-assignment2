@@ -13,9 +13,6 @@ struct PaymentMethodUiView: View {
     @EnvironmentObject private var router: OrderFlowRouter
     @Environment(\.paymentRepository) private var paymentRepository
 
-    @State private var isTakingPayment = false
-    @State private var errorMessage: String?
-
     var body: some View {
            VStack(alignment: .leading, spacing: 0) {
 
@@ -81,9 +78,9 @@ struct PaymentMethodUiView: View {
                .buttonStyle(.plain)
                .padding(.top, 14)
 
-               Text(errorMessage ?? "Payment is recorded by staff.")
+               Text(draft.paymentErrorMessage ?? "Payment is recorded by staff.")
                    .font(.footnote)
-                   .foregroundStyle(errorMessage == nil ? Color.secondary : Color.red)
+                   .foregroundStyle(draft.paymentErrorMessage == nil ? Color.secondary : Color.red)
                    .multilineTextAlignment(.center)
                    .frame(maxWidth: .infinity)
                    .padding(.top, 28)
@@ -94,9 +91,9 @@ struct PaymentMethodUiView: View {
            .padding(.top, 24)
            .background(Color(.systemBackground))
            .navigationBarBackButtonHidden()
-           .disabled(isTakingPayment)
+           .disabled(draft.isTakingPayment)
            .overlay {
-               if isTakingPayment {
+               if draft.isTakingPayment {
                    ProgressView("Taking payment…")
                        .padding(24)
                        .background(Color(.secondarySystemBackground))
@@ -105,29 +102,17 @@ struct PaymentMethodUiView: View {
            }
        }
 
-    /// A decline is a normal outcome and moves to its own screen. Only a payment
-    /// that could not be attempted at all stays here as a message.
     private func take(_ method: PaymentMethod) {
-        guard let order = draft.order, !isTakingPayment else { return }
-
-        isTakingPayment = true
-        errorMessage = nil
-
         Task {
-            defer { isTakingPayment = false }
+            // A decline is a normal outcome and moves to its own screen; only a
+            // payment that could not be attempted stays here as a message.
+            guard await draft.takePayment(method: method, repository: paymentRepository) else { return }
 
-            do {
-                let useCase = TakePaymentUseCase(repository: paymentRepository)
-                let payment = try await useCase.execute(order: order, method: method)
-
-                draft.recordPayment(payment)
-                router.push(payment.status == .approved ? .paymentComplete : .paymentFailed)
-            } catch {
-                errorMessage = error.localizedDescription
-            }
+            router.push(draft.payment?.status == .approved ? .paymentComplete : .paymentFailed)
         }
     }
-   }
+}
+
 #Preview {
     NavigationStack {
         PaymentMethodUiView()

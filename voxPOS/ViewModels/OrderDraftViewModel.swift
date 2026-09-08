@@ -40,6 +40,12 @@ final class OrderDraftViewModel: ObservableObject {
     /// The most recent payment attempt, once one has been made.
     private(set) var payment: Payment?
 
+    /// True while the terminal is being asked, so the screen can block a second tap.
+    @Published private(set) var isTakingPayment = false
+
+    /// Set when the payment could not be attempted at all.
+    private(set) var paymentErrorMessage: String?
+
     /// Set when a change to the order was refused, for example on a paid order.
     private(set) var editErrorMessage: String?
 
@@ -179,6 +185,29 @@ final class OrderDraftViewModel: ObservableObject {
         change { try reviseOrder.remove(item: item, order: $0) }
     }
 
+    /// Takes payment for this order and keeps the outcome for the result screens.
+    ///
+    /// - Returns: `true` when the attempt was made — approved or declined. `false`
+    ///   means it could not be attempted at all, and ``errorMessage`` says why.
+    func takePayment(method: PaymentMethod, repository: PaymentRepository) async -> Bool {
+        guard let order, !isTakingPayment else { return false }
+
+        isTakingPayment = true
+        defer { isTakingPayment = false }
+
+        do {
+            let useCase = TakePaymentUseCase(repository: repository)
+            recordPayment(try await useCase.execute(order: order, method: method))
+
+            paymentErrorMessage = nil
+            return true
+        } catch {
+            // A decline is not an error; only a payment that could not be attempted.
+            paymentErrorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     /// Records the outcome of a payment attempt so the result screens can show it.
     func recordPayment(_ payment: Payment) {
         objectWillChange.send()
@@ -187,6 +216,7 @@ final class OrderDraftViewModel: ObservableObject {
 
     func cancel() {
         failure = nil
+        paymentErrorMessage = nil
         editErrorMessage = nil
         payment = nil
         order = nil
