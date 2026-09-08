@@ -15,6 +15,6 @@ struct voxPOSApp: App {
         WindowGroup {
             RootView()
         }
-        .modelContainer(for: Grocery.self)
+      //  .modelContainer(for: Product.self)
     }
 }

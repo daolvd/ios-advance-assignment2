@@ -1,0 +1,163 @@
+//
+//  ConvertTextToOrderUseCase.swift
+//  voxPOS
+//
+//  Created by Van Dao Le on 6/9/2026.
+//
+
+import Foundation
+
+/// The ways turning a sentence into an order can fail.
+enum OrderInterpretationError: LocalizedError, Equatable {
+
+    /// There were no words to work from.
+    case noTextToInterpret
+
+    /// The on-device model cannot be used on this device right now.
+    case modelUnavailable(reason: String)
+
+    /// The model ran but found nothing that looked like an order.
+    case nothingOrdered
+
+    /// Items were heard, but not one of them is on today's menu.
+    case nothingOnTheMenu
+
+    /// The model failed part way through.
+    case interpretationFailed(reason: String)
+
+    /// The instructions file is missing from the app bundle.
+    case instructionsMissing
+
+    var errorDescription: String? {
+        switch self {
+        case .noTextToInterpret:
+            return "There is nothing to turn into an order yet."
+        case .modelUnavailable(let reason):
+            return reason
+        case .nothingOrdered:
+            return "We couldn't find an order in that. Please take the order again."
+        case .nothingOnTheMenu:
+            return "Nothing the customer asked for is on today's menu. Please take the order again."
+        case .interpretationFailed:
+            return "We couldn't read that order. Please try again or add the items by hand."
+        case .instructionsMissing:
+            return "Voice ordering is not set up correctly. Please add the items by hand."
+        }
+    }
+}
+
+/// An order built from what a customer said, plus anything that could not be matched.
+struct InterpretedOrder {
+
+    /// The draft order, priced from the menu and ready for the staff to confirm.
+    let order: Order
+
+    /// Things the customer asked for that are not on today's menu.
+    ///
+    /// These are shown to the staff rather than dropped in silence, so nobody
+    /// discovers a missing item after the customer has paid.
+    let unmatchedItems: [String]
+
+    /// Changes the customer asked for that the kitchen cannot make on that product.
+    ///
+    /// Dropping the option quietly would be worse than not hearing it: the staff
+    /// would never know the customer asked. Each one is written out for review.
+    let issues: [String]
+}
+
+/// Turns what a customer said into a draft order.
+///
+/// The on-device model reads the sentence and says which products it thinks were
+/// asked for. Every line it returns is then checked against today's menu: names are
+/// matched to real products, options the kitchen cannot make are dropped, and the
+/// price is taken from the menu — never from the model, which is free to write any
+/// number it likes and must not be trusted with money.
+///
+/// The result is a draft. It is not saved and not paid for until the staff confirm it.
+struct ConvertTextToOrderUseCase {
+
+    private let interpreter: OrderInterpreting
+    private let repository: ProductRepository
+
+    init(interpreter: OrderInterpreting, repository: ProductRepository) {
+        self.interpreter = interpreter
+        self.repository = repository
+    }
+
+    /// Builds a draft order from a sentence.
+    ///
+    /// - Parameters:
+    ///   - text: What the customer said, in the staff's language.
+    ///   - orderNumber: The number this order will be called out by.
+    /// - Returns: The draft order, and anything that could not be found on the menu.
+    /// - Throws: ``OrderInterpretationError`` when there is nothing to read, the model
+    ///   cannot run, or nothing asked for is on the menu.
+    func execute(text: String, orderNumber: Int) async throws -> InterpretedOrder {
+        let spokenText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !spokenText.isEmpty else {
+            throw OrderInterpretationError.noTextToInterpret
+        }
+
+        let lines = try await interpreter.interpret(
+            text: spokenText,
+            menu: repository.availableProducts
+        )
+
+        guard !lines.isEmpty else {
+            throw OrderInterpretationError.nothingOrdered
+        }
+
+        let order = Order(orderNumber: orderNumber)
+        let revise = ReviseOrderUseCase(repository: repository)
+
+        var unmatchedItems: [String] = []
+        var issues: [String] = []
+
+        for line in lines {
+            // The model says so itself when nothing on the menu fits.
+            guard line.isOnMenu else {
+                unmatchedItems.append(line.customerWords)
+                continue
+            }
+
+            guard let product = repository.product(named: line.productName) else {
+                unmatchedItems.append(line.customerWords)
+                continue
+            }
+
+            do {
+                let added = try revise.addItem(
+                    product,
+                    // The model occasionally writes 0 for "a coffee".
+                    quantity: max(line.quantity, 1),
+                    options: line.modifiers,
+                    order: order
+                )
+
+                // Kept rather than dropped in silence: the staff have to be able to
+                // tell the customer their change could not be made.
+                if !added.droppedOptions.isEmpty {
+                    issues.append(
+                        "\(product.title): \(added.droppedOptions.joined(separator: ", ")) is not available"
+                    )
+                }
+            } catch {
+                // Sold out, or gone from the menu since the prompt was built.
+                unmatchedItems.append(line.customerWords)
+            }
+        }
+
+        guard !order.items.isEmpty else {
+            throw OrderInterpretationError.nothingOnTheMenu
+        }
+
+        order.spokenText = spokenText
+
+        return InterpretedOrder(
+            order: order,
+            unmatchedItems: unmatchedItems,
+            issues: issues
+        )
+    }
+}

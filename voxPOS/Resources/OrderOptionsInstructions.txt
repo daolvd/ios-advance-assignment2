@@ -1,0 +1,14 @@
+====task====
+Decide which listed options the customer asked for, for one product they ordered.
+====end-task====
+
+====rules====
+Only choose options from the allowed list. Nothing else is available for this product.
+Choose an option only if the customer asked for it about this product.
+If they asked for no changes, return one group with all the units and no options.
+
+Split the units into groups when the customer wants different options on different
+units. "Two burgers, one without mayonnaise" is one group of 1 with that option and
+one group of 1 without it.
+The group quantities must add up to the total ordered.
+====end-rules====
